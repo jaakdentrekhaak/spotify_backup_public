@@ -42,11 +42,10 @@ def get_playlists(access_token, user_id):
         'Authorization': f'Bearer {access_token}'
     }
     url = f'https://api.spotify.com/v1/users/{user_id}/playlists?offset=0&limit=50'
-    next = 'dummy'
 
     playlists = []
 
-    while next is not None:
+    while url is not None:
 
         r = requests.get(
             url,
@@ -58,7 +57,7 @@ def get_playlists(access_token, user_id):
             exit()
         
         body = r.json()
-        next = body['next']
+        url = body['next']
         playlists.extend(body['items'])
 
     playlists = parse_playlists(playlists)
@@ -81,6 +80,52 @@ def parse_playlists(playlists):
     return result
 
 
+def get_tracks(access_token, playlists):
+    headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {access_token}'
+    }
+    for idx, pl in enumerate(playlists):
+        url = f"{pl['tracks']['href']}?offset=0&limit=50"
+        tracks = []
+        
+        while url is not None:
+            r = requests.get(
+                url,
+                headers=headers
+            )
+
+            if r.status_code != 200:
+                print(f'Failed with status code {r.status_code}')
+                exit()
+            
+            body = r.json()
+            url = body['next']
+            tracks.extend(parse_tracks(body['items']))
+        
+        playlists[idx]['tracks'] = tracks
+
+
+def parse_tracks(tracks):
+    result = []
+    for tr in tracks:
+        result.append(
+            {
+                'artists': parse_artists(tr['track']['artists']),
+                'id': tr['track']['id'],
+                'name': tr['track']['name']
+            }
+        )
+    return result
+
+
+def parse_artists(artists):
+    result = []
+    for at in artists:
+        result.append(at['name'])
+    return result
+
 if __name__ == '__main__':
     with open('config.json', 'r') as f:
         data = json.load(f)
@@ -89,5 +134,9 @@ if __name__ == '__main__':
         user_id = data['user_id']
 
     access_token = get_access_token(client_id, client_secret)
+    print('Retrieving playlist information...')
     playlists = get_playlists(access_token, user_id)
-    # TODO: use track urls to get information about songs in playlist and store result in json
+    get_tracks(access_token, playlists)
+    with open('spotify_playlist_backup.json', 'w') as f:
+        json.dump(playlists, f)
+    # TODO: show progress

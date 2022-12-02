@@ -10,4 +10,5 @@ Make a `config.json` file in the same directory as the `main.py` file with a cli
 ```
 
 # Run program
-`python main.py`
+In the terminal: 
+`python3 main.py`
